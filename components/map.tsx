@@ -8,7 +8,7 @@ import { MapPin } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import axios from 'axios';
-import debounce from 'lodash/debounce';
+import debounce from 'debounce';
 import datalist from '../public/chapters.json';
 
 // Custom marker icon
@@ -131,15 +131,7 @@ function MapComponent() {
     const pt = turf.point([point[1], point[0]]);
     console.log('Checking point:', pt);
 
-    let foundWard: {
-      ward: string | null;
-      zone: string | null;
-      division: string | null;
-      subdivision: string | null;
-      assembly: string | null;
-      parliament: string | null;
-      chapter?: string | null;
-    } | null = null;
+    let foundWard: any;
 
     geoJsonData.features.forEach((feature: any) => {
       if (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon') {
