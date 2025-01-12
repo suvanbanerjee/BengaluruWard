@@ -175,7 +175,6 @@ function MapComponent() {
       foundWard.chapter = normalizedChapters[normalizedWardName] || null;
       console.log('Matched Chapter:', foundWard.chapter);
     }
-
     return foundWard;
   }, [geoJsonData, chapters]);
 
@@ -185,7 +184,7 @@ function MapComponent() {
       const wardInfo = findWard(position);
       setMarker({ position, wardInfo });
       if (mapInstance) {
-        mapInstance.setView(position, 15); // Adjust zoom level as needed
+        mapInstance.setView(position, 13);
       }
     },
     [findWard, mapInstance]
@@ -193,7 +192,7 @@ function MapComponent() {
 
   const handleSearch = async () => {
     const bengaluruSuggestions = suggestions.filter((suggestion) =>
-      suggestion.display_name.includes('Bangalore') || suggestion.display_name.includes('Bengaluru')
+      /bangalore|bengaluru/i.test(suggestion.display_name)
     );
 
     if (bengaluruSuggestions.length > 0) {
@@ -202,7 +201,7 @@ function MapComponent() {
       const wardInfo = findWard(position);
       setMarker({ position, wardInfo });
       if (mapInstance) {
-        mapInstance.setView(position, 15); // Adjust zoom level as needed
+      mapInstance.setView(position, 13);
       }
     } else {
       console.log('No results found in Bangalore');
@@ -261,10 +260,13 @@ function MapComponent() {
               zoom={11}
               className="h-full w-full z-0"
               dragging={true}
+              maxBounds={[[12.834, 77.379], [13.139, 77.789]]}
+              maxBoundsViscosity={3.0}
+              minZoom={11}
             >
               <TileLayer
-                url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
               />
               {geoJsonData && (
                 <GeoJSON
