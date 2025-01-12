@@ -13,12 +13,19 @@ import datalist from '../public/chapters.json';
 
 // Custom marker icon
 const customIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-  iconSize: [25, 41],
+  iconUrl: 'https://www.cp-desk.com/wp-content/uploads/2019/02/map-marker-free-download-png.png',
+  iconSize: [40, 40],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
   shadowSize: [41, 41],
+});
+
+const userPointer = new L.DivIcon({
+  className: 'custom-div-icon',
+  html: "<div style='background-color:#007bff; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white;'></div>",
+  iconSize: [12, 12],
+  iconAnchor: [6, 6],
+  popupAnchor: [0, -6],
 });
 
 function MapEvents({ onMapClick, setMap }: { onMapClick: (e: L.LeafletMouseEvent) => void; setMap: (map: L.Map) => void }) {
@@ -264,8 +271,8 @@ function MapComponent() {
                   data={geoJsonData}
                   style={() => ({
                     color: '#28306f',
-                    weight: 2,
-                    opacity: 0.3,
+                    weight: 0.5,
+                    opacity: 0.8,
                     fillColor: '#f39117',
                     fillOpacity: 0.05,
                   })}
@@ -287,7 +294,7 @@ function MapComponent() {
                 </Marker>
               )}
               {userLocation && (
-                <Marker position={userLocation.position} icon={customIcon}>
+                <Marker position={userLocation.position} icon={userPointer}>
                   <Popup>
                     <div className="bg-[#28306f] text-white p-2 rounded">
                       <p><strong className="text-[#f39117]">User Location:</strong></p>
