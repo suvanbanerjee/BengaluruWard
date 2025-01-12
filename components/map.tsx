@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { MapContainer, TileLayer, GeoJSON, Marker, Popup, useMap } from 'react-leaflet';
 import { kml } from '@tmcw/togeojson';
 import * as turf from '@turf/turf';
-import { MapPin } from 'lucide-react';
+import { MapPin, Search } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import axios from 'axios';
@@ -21,15 +21,16 @@ const customIcon = new L.Icon({
   shadowSize: [41, 41],
 });
 
-function MapEvents({ onMapClick }: { onMapClick: (e: L.LeafletMouseEvent) => void }) {
+function MapEvents({ onMapClick, setMap }: { onMapClick: (e: L.LeafletMouseEvent) => void; setMap: (map: L.Map) => void }) {
   const map = useMap();
 
   useEffect(() => {
+    setMap(map);
     map.on('click', onMapClick);
     return () => {
       map.off('click', onMapClick);
     };
-  }, [map, onMapClick]);
+  }, [map, onMapClick, setMap]);
 
   return null;
 }
@@ -64,6 +65,7 @@ function MapComponent() {
   } | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
 
   useEffect(() => {
     fetch('/sba-data.kml')
@@ -175,22 +177,28 @@ function MapComponent() {
       const position: [number, number] = [e.latlng.lat, e.latlng.lng];
       const wardInfo = findWard(position);
       setMarker({ position, wardInfo });
+      if (mapInstance) {
+        mapInstance.setView(position, 15); // Adjust zoom level as needed
+      }
     },
-    [findWard]
+    [findWard, mapInstance]
   );
 
   const handleSearch = async () => {
-    if (suggestions.length > 0) {
-      const { lat, lon, display_name } = suggestions[0];
-      if (display_name.includes('Bangalore') || display_name.includes('Bengaluru')) {
-        const position: [number, number] = [parseFloat(lat), parseFloat(lon)];
-        const wardInfo = findWard(position);
-        setMarker({ position, wardInfo });
-      } else {
-        console.log('Result is not in Bangalore');
+    const bengaluruSuggestions = suggestions.filter((suggestion) =>
+      suggestion.display_name.includes('Bangalore') || suggestion.display_name.includes('Bengaluru')
+    );
+
+    if (bengaluruSuggestions.length > 0) {
+      const { lat, lon } = bengaluruSuggestions[0];
+      const position: [number, number] = [parseFloat(lat), parseFloat(lon)];
+      const wardInfo = findWard(position);
+      setMarker({ position, wardInfo });
+      if (mapInstance) {
+        mapInstance.setView(position, 15); // Adjust zoom level as needed
       }
     } else {
-      console.log('No results found');
+      console.log('No results found in Bangalore');
     }
   };
 
@@ -201,113 +209,120 @@ function MapComponent() {
   };
 
   return (
-    <div className="relative h-full">
-      <div className="top-4 left-4 z-[1000] space-y-4">
-        <input
-          type="text"
-          placeholder="Search address..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyPress={handleKeyPress}
-          className="p-2 w-full border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        {suggestions.length > 0 && (
-          <ul className="bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-            {suggestions.map((suggestion, index) => (
-              <li
-                key={index}
-                className="p-2 cursor-pointer hover:bg-gray-100"
-                onClick={() => {
-                  setSearchQuery(suggestion.display_name);
-                  setSuggestions([]);
-                  handleSearch();
-                }}
-              >
-                {suggestion.display_name}
-              </li>
-            ))}
-          </ul>
-        )}
-        <button onClick={handleSearch} className="p-2 w-full bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600">
-          Search
-        </button>
-      </div>
-      <div className="absolute top-4 right-4 z-[1000] space-y-4">
-        {marker && (
-          <div className="bg-[#28306f] text-white p-4 rounded-lg shadow-lg">
-            <h3 className="font-semibold mb-2 text-[#f39117]">Pinned Location</h3>
-            <div className="space-y-1">
-              <div className="flex items-center space-x-2">
-                <MapPin className="w-4 h-4 text-[#f39117]" />
-                <span><strong>Ward:</strong> {marker.wardInfo?.ward || 'Outside Bengaluru'}</span>
-              </div>
-              <p><strong>Zone:</strong> {marker.wardInfo?.zone}</p>
-              <p><strong>Division:</strong> {marker.wardInfo?.division}</p>
-              <p><strong>Subdivision:</strong> {marker.wardInfo?.subdivision}</p>
-              <p><strong>Assembly:</strong> {marker.wardInfo?.assembly}</p>
-              <p><strong>Parliament:</strong> {marker.wardInfo?.parliament}</p>
-              <p><strong>Chapter:</strong> {marker.wardInfo?.chapter}</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="h-[600px] relative rounded-lg overflow-hidden border border-[#28306f]">
-        <MapContainer
-          center={[12.9716, 77.5946]}
-          zoom={11}
-          className="h-full w-full"
-          dragging={true}
-        >
-          <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    <div className="flex flex-col h-[85vh]">
+      <div className="p-4 z-10">
+        <div className="max-w-3xl mx-auto relative">
+          <input
+            type="text"
+            placeholder="Search address..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyPress={handleKeyPress}
+            className="w-full p-2 pr-10 border border-[#28306f] rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#28306f] text-[#28306f]"
           />
-          {geoJsonData && (
-            <GeoJSON
-              data={geoJsonData}
-              style={() => ({
-                color: '#28306f',
-                weight: 2,
-                opacity: 0.8,
-                fillColor: '#f39117',
-                fillOpacity: 0.1,
-              })}
-            />
+          <button
+            onClick={handleSearch}
+            className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 bg-[#f39117] text-white rounded-full hover:bg-[#28306f] focus:outline-none focus:ring-2 focus:ring-[#f39117]"
+          >
+            <Search className="w-4 h-4" />
+            <span className="sr-only">Search</span>
+          </button>
+          {suggestions.length > 0 && (
+            <ul className="absolute z-50 w-full bg-white border border-[#f39117] rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto">
+              {suggestions.map((suggestion, index) => (
+                <li
+                  key={index}
+                  className="p-2 cursor-pointer hover:bg-[#f39117] hover:text-white"
+                  onClick={() => {
+                    setSearchQuery(suggestion.display_name);
+                    setSuggestions([]);
+                    handleSearch();
+                  }}
+                >
+                  {suggestion.display_name}
+                </li>
+              ))}
+            </ul>
           )}
-          {marker && (
-            <Marker position={marker.position} icon={customIcon}>
-              <Popup>
-                <div className="bg-[#28306f] text-white p-2 rounded">
-                  <p><strong className="text-[#f39117]">Ward:</strong> {marker.wardInfo?.ward || 'No ward found'}</p>
-                  <p><strong className="text-[#f39117]">Zone:</strong> {marker.wardInfo?.zone}</p>
-                  <p><strong className="text-[#f39117]">Division:</strong> {marker.wardInfo?.division}</p>
-                  <p><strong className="text-[#f39117]">Subdivision:</strong> {marker.wardInfo?.subdivision}</p>
-                  <p><strong className="text-[#f39117]">Assembly:</strong> {marker.wardInfo?.assembly}</p>
-                  <p><strong className="text-[#f39117]">Parliament:</strong> {marker.wardInfo?.parliament}</p>
-                  <p><strong className="text-[#f39117]">Chapter:</strong> {marker.wardInfo?.chapter || 'Unknown Chapter'}</p>
-                </div>
-              </Popup>
-            </Marker>
+        </div>
+      </div>
+      <div className="flex-grow flex flex-col lg:flex-row">
+        <div className="w-full lg:w-3/4 h-1/2 lg:h-full p-4">
+          <div className="h-full relative rounded-lg overflow-hidden border border-[#28306f]">
+            <MapContainer
+              center={[12.9716, 77.5946]}
+              zoom={11}
+              className="h-full w-full z-0"
+              dragging={true}
+            >
+              <TileLayer
+                url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+              />
+              {geoJsonData && (
+                <GeoJSON
+                  data={geoJsonData}
+                  style={() => ({
+                    color: '#28306f',
+                    weight: 2,
+                    opacity: 0.3,
+                    fillColor: '#f39117',
+                    fillOpacity: 0.05,
+                  })}
+                />
+              )}
+              {marker && (
+                <Marker position={marker.position} icon={customIcon}>
+                  <Popup>
+                    <div className="p-2 rounded">
+                      <p><strong className="text-[#f39117]">Ward:</strong> {marker.wardInfo?.ward || 'No ward found'}</p>
+                      <p><strong className="text-[#f39117]">Zone:</strong> {marker.wardInfo?.zone}</p>
+                      <p><strong className="text-[#f39117]">Division:</strong> {marker.wardInfo?.division}</p>
+                      <p><strong className="text-[#f39117]">Subdivision:</strong> {marker.wardInfo?.subdivision}</p>
+                      <p><strong className="text-[#f39117]">Assembly:</strong> {marker.wardInfo?.assembly}</p>
+                      <p><strong className="text-[#f39117]">Parliament:</strong> {marker.wardInfo?.parliament}</p>
+                      <p><strong className="text-[#f39117]">Chapter:</strong> {marker.wardInfo?.chapter || 'Unknown Chapter'}</p>
+                    </div>
+                  </Popup>
+                </Marker>
+              )}
+              {userLocation && (
+                <Marker position={userLocation.position} icon={customIcon}>
+                  <Popup>
+                    <div className="bg-[#28306f] text-white p-2 rounded">
+                      <p><strong className="text-[#f39117]">User Location:</strong></p>
+                      <p><strong className="text-[#f39117]">Ward:</strong> {userLocation.wardInfo?.ward || 'No ward found'}</p>
+                      <p><strong className="text-[#f39117]">Zone:</strong> {userLocation.wardInfo?.zone}</p>
+                      <p><strong className="text-[#f39117]">Division:</strong> {userLocation.wardInfo?.division}</p>
+                      <p><strong className="text-[#f39117]">Subdivision:</strong> {userLocation.wardInfo?.subdivision}</p>
+                      <p><strong className="text-[#f39117]">Assembly:</strong> {userLocation.wardInfo?.assembly}</p>
+                      <p><strong className="text-[#f39117]">Parliament:</strong> {userLocation.wardInfo?.parliament}</p>
+                      <p><strong className="text-[#f39117]">Chapter:</strong> {userLocation.wardInfo?.chapter || 'Unknown Chapter'}</p>
+                    </div>
+                  </Popup>
+                </Marker>
+              )}
+              <MapEvents onMapClick={handleMapClick} setMap={setMapInstance} />
+            </MapContainer>
+          </div>
+        </div>
+        <div className="w-full lg:w-1/4 h-1/2 lg:h-full p-4 overflow-y-auto">
+          {marker ? (
+            <div className="bg-[#28306f] text-white p-4 rounded-lg shadow-lg">
+              <h3 className="font-semibold mb-2 text-[#f39117] text-lg">{marker.wardInfo?.chapter || 'Unknown'} Chapter</h3>
+              <div className="space-y-1 text-lg">
+                <p>{marker.wardInfo?.ward || 'No ward found'}</p>
+                <p>Zone: {marker.wardInfo?.zone}</p>
+                <p>Division: {marker.wardInfo?.division}</p>
+                <p>Subdivision: {marker.wardInfo?.subdivision}</p>
+                <p>Assembly: {marker.wardInfo?.assembly}</p>
+                <p>Parliament: {marker.wardInfo?.parliament}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-[#28306f] font-semibold">This tool allows you to find what SBA chapter you are in by clicking on the map or searching for an address. you will also be able to see the ward, zone, division, subdivision, assembly, and parliament constituency you are in.</p>
           )}
-                    {userLocation && (
-            <Marker position={userLocation.position} icon={customIcon}>
-              <Popup>
-                <div className="bg-[#28306f] text-white p-2 rounded">
-                  <p><strong className="text-[#f39117]">User Location:</strong></p>
-                  <p><strong className="text-[#f39117]">Ward:</strong> {userLocation.wardInfo?.ward || 'No ward found'}</p>
-                  <p><strong className="text-[#f39117]">Zone:</strong> {userLocation.wardInfo?.zone}</p>
-                  <p><strong className="text-[#f39117]">Division:</strong> {userLocation.wardInfo?.division}</p>
-                  <p><strong className="text-[#f39117]">Subdivision:</strong> {userLocation.wardInfo?.subdivision}</p>
-                  <p><strong className="text-[#f39117]">Assembly:</strong> {userLocation.wardInfo?.assembly}</p>
-                  <p><strong className="text-[#f39117]">Parliament:</strong> {userLocation.wardInfo?.parliament}</p>
-                  <p><strong className="text-[#f39117]">Chapter:</strong> {userLocation.wardInfo?.chapter || 'Unknown Chapter'}</p>
-                </div>
-              </Popup>
-            </Marker>
-          )}
-          <MapEvents onMapClick={handleMapClick} />
-        </MapContainer>
+        </div>
       </div>
     </div>
   );
