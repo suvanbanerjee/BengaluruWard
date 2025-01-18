@@ -52,6 +52,7 @@ function MapEmbed() {
   const [ward, setWard] = useState<string>('');
   const [chapter, setChapter] = useState<string>('');
   const [address, setAddress] = useState<string>('');
+  const [searchInput, setSearchInput] = useState<string>('');
 
   useEffect(() => {
     fetch('/sba-data.kml')
@@ -128,13 +129,90 @@ function MapEmbed() {
     [findWard, mapInstance]
   );
 
+  const handleSearch = useCallback(() => {
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${searchInput}`)
+      .then(response => response.json())
+      .then(data => {
+        if (data && data.length > 0) {
+          const { lat, lon } = data[0];
+          const position: [number, number] = [parseFloat(lat), parseFloat(lon)];
+          const wardInfo = findWard(position);
+
+          if (wardInfo) {
+            setMarker({ position, wardInfo });
+            setWard(wardInfo.ward || 'Unknown');
+            setChapter(wardInfo.chapter || 'Unknown');
+            setAddress(data[0].display_name);
+            if (mapInstance) mapInstance.setView(position, 13);
+          }
+        }
+      })
+      .catch(error => console.error('Error searching address:', error));
+  }, [searchInput, findWard, mapInstance]);
+
+  const fetchSuggestions = useCallback((input: string) => {
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${input}`)
+      .then(response => response.json())
+      .then(data => {
+        if (data && data.length > 0) {
+          const bangaloreSuggestions = data.filter((item: any) => item.display_name.includes('Bangalore'));
+          setSuggestions(bangaloreSuggestions.map((item: any) => item.display_name));
+        }
+      })
+      .catch(error => console.error('Error fetching suggestions:', error));
+  }, []);
+
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+
   return (
     <div className="h-screen flex flex-col">
+      <div className="p-4 bg-white shadow-md">
+        <div className="mb-2">
+          <label className="block text-sm font-medium text-gray-700">Search Address</label>
+          <div className="flex">
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => {
+                setSearchInput(e.target.value);
+                fetchSuggestions(e.target.value);
+              }}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+            <button
+              onClick={handleSearch}
+              className="ml-2 px-4 py-2 bg-indigo-600 text-white rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Search
+            </button>
+          </div>
+            {suggestions.length > 0 && (
+            <div className="relative">
+              <div className="absolute z-50 mt-2 w-full bg-white border border-gray-300 rounded-md shadow-lg">
+              <ul>
+                {suggestions.map((suggestion, index) => (
+                <li
+                  key={index}
+                  className="px-3 py-2 cursor-pointer hover:bg-gray-200"
+                  onClick={() => {
+                  setSearchInput(suggestion);
+                  setSuggestions([]);
+                  }}
+                >
+                  {suggestion}
+                </li>
+                ))}
+              </ul>
+              </div>
+            </div>
+            )}
+        </div>
+      </div>
       <div className="flex-grow">
         <MapContainer
           center={[12.9716, 77.5946]}
           zoom={11}
-          className="h-full w-full"
+          className="h-full w-full z-0"
           dragging={true}
           maxBounds={[[12.834, 77.379], [13.139, 77.789]]}
           maxBoundsViscosity={1.0}
@@ -148,21 +226,21 @@ function MapEmbed() {
             <GeoJSON
               data={geoJsonData}
               style={{
-                color: '#28306f',
-                weight: 0.5,
-                opacity: 0.8,
-                fillColor: '#f39117',
-                fillOpacity: 0.05,
+          color: '#28306f',
+          weight: 0.5,
+          opacity: 0.8,
+          fillColor: '#f39117',
+          fillOpacity: 0.05,
               }}
             />
           )}
           {marker && (
             <Marker position={marker.position} icon={customIcon}>
               <Popup autoClose={false} autoPan={false}>
-                <div>
-                  <p><strong>Ward:</strong> {marker.wardInfo?.ward || 'No ward found'}</p>
-                  <p><strong>Chapter:</strong> {marker.wardInfo?.chapter || 'Unknown Chapter'}</p>
-                </div>
+          <div>
+            <p><strong>Ward:</strong> {marker.wardInfo?.ward || 'No ward found'}</p>
+            <p><strong>Chapter:</strong> {marker.wardInfo?.chapter || 'Unknown Chapter'}</p>
+          </div>
               </Popup>
             </Marker>
           )}
